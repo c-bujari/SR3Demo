@@ -234,6 +234,7 @@
         tracePOST_MOVED_TASK_TO_READY_STATE( pxTCB )                                                            \
     }
 #endif
+
 /*-----------------------------------------------------------*/
 
 /*
@@ -358,6 +359,12 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
         TickType_t xTaskPeriod; /*< Stores the period of the task for implicit deadline EDF scheduling in ticks */
     #endif
 
+	#if ( configUSE_EDFVD_SCHEDULER == 1)
+		CritType_t ucTaskCrit;		// Designate task TYPE
+		CritType_t ucCurrCrit;		// Designate CURRENT task criticality
+		BaseType_t xScaleDiv;
+	#endif
+
 } tskTCB;
 
 /* The old tskTCB name is maintained above then typedefed to the new TCB_t name
@@ -375,6 +382,23 @@ PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 #if ( configUSE_EDF_SCHEDULER == 1 )
     PRIVILEGED_DATA static List_t pxReadyTasksListsEDF;
 #endif
+// Additional lists, to enable quick iteration through hi-crit tasks and lo-crit tasks seperately
+#if ( configUSE_EDFVD_SCHEDULER == 1 )
+    PRIVILEGED_DATA static List_t pxHiCritTasks;
+    PRIVILEGED_DATA static List_t pxLoCritTasks;
+#endif
+
+// If the VD scheduler is enabled, this macro adds a task to its corresponding list based on criticality.
+// This allows us to quickly change virtual deadlines, and drop/resume all tasks of a given criticality
+void prvAddTaskToCritList( TCB_t * pxTCB )
+{
+  	if( pxTCB->ucTaskCrit == HI_CRIT )
+   		vListInsert( &( pxHiCritTasks), &( ( pxTCB )->xStateListItem ) );
+   	else if( pxTCB->ucTaskCrit == LO_CRIT )
+		vListInsert( &( pxHiCritTasks), &( ( pxTCB )->xStateListItem ) );
+}
+
+
 PRIVILEGED_DATA static List_t pxReadyTasksLists[ configMAX_PRIORITIES ]; /*< Prioritised ready tasks. */
 PRIVILEGED_DATA static List_t xDelayedTaskList1;                         /*< Delayed tasks. */
 PRIVILEGED_DATA static List_t xDelayedTaskList2;                         /*< Delayed tasks (two lists are used - one for delays that have overflowed the current tick count. */
@@ -580,7 +604,10 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                                   TaskHandle_t * const pxCreatedTask,
                                   TCB_t * pxNewTCB,
                                   const MemoryRegion_t * const xRegions,
-                                  TickType_t x) PRIVILEGED_FUNCTION;
+                                  TickType_t xPeriod,
+ 								  CritType_t ucTaskCrit,
+  								  float xShiftScaler
+  								  ) PRIVILEGED_FUNCTION;
 
 /*
  * Called after a new task has been created and initialised to place the task
@@ -834,6 +861,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             prvInitialiseNewTask( pxTaskCode, pcName, ( uint32_t ) usStackDepth, pvParameters, uxPriority, pxCreatedTask, pxNewTCB, NULL, NULL );
             prvAddNewTaskToReadyList( pxNewTCB );
+			#if( configUSE_EDFVD_SCHEDULER == 1 )
+			prvAddTaskToCritList( pxNewTCB );
+			#endif
             xReturn = pdPASS;
         }
         else
