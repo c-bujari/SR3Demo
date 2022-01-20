@@ -1634,7 +1634,7 @@ configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( TaskHandle_t xTask ) PRIVIL
       * @param pcTaskName A character string containing the name of the offending task.
       */
      void vApplicationStackOverflowHook( TaskHandle_t xTask,
-                                               char * pcTaskName ); 
+                                               signed char * pcTaskName );
  
 #endif 
  
