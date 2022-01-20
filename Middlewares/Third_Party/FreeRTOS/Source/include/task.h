@@ -337,6 +337,7 @@ typedef enum
  * \ingroup Tasks
  */
 #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
+	// Custom EDF Scheduler definition
     #if (configUSE_EDF_SCHEDULER == 1)
         BaseType_t xTaskPeriodicCreate( TaskFunction_t pxTaskCode,
                                     const char * const pcName,     /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
@@ -345,6 +346,19 @@ typedef enum
                                     UBaseType_t uxPriority,
                                     TaskHandle_t * const pxCreatedTask,
                                     TickType_t xPeriod ) PRIVILEGED_FUNCTION;
+        // Custom EDF-VD Scheduler definition (based on EDF work)
+		#if (configUSE_EDFVD_SCHEDULER == 1)
+			BaseType_t xTaskVirtCreate (TaskFunction_t pxTaskCode,
+										const char * const pcName,
+										const configSTACK_DEPTH_TYPE usStackDepth,
+										void * const pvParameters,
+										UBaseType_t uxPriority,
+										TaskHandle_t * const pxCreatedTask,
+										TickType_t xPeriod,
+										CritType_t ucCrit,
+										float xCritScaler
+										) PRIVILEGED_FUNCTION;
+		#endif
     #else
         BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
                                 const char * const pcName,     /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
