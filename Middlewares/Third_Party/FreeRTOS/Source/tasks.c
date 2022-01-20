@@ -1157,7 +1157,9 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                                   TaskHandle_t * const pxCreatedTask,
                                   TCB_t * pxNewTCB,
                                   const MemoryRegion_t * const xRegions,
-                                  TickType_t xPeriod
+                                  TickType_t xPeriod,
+								  CritType_t ucCrit,
+    							  float xShiftScaler
                                   )
 {
     StackType_t * pxTopOfStack;
@@ -1279,7 +1281,15 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TickType_t xCurrentTick = xTaskGetTickCount();
         pxNewTCB->xTaskPeriod = xPeriod;
         listSET_LIST_ITEM_VALUE(&( ( pxNewTCB )->xStateListItem), ( pxNewTCB )->xTaskPeriod+xCurrentTick);
-    #endif
+	#endif
+
+	#if (configUSE_EDFVD_SCHEDULER == 1)
+        pxNewTCB->ucTaskCrit = ucCrit;
+    	pxNewTCB->ucCurrCrit = LO_CRIT;
+    	pxNewTCB->xScaleDiv = (BaseType_t)(1 / xShiftScaler);
+    	pxNewTCB->xTaskPeriod = pxNewTCB->
+	#endif
+
     /* Set the pxNewTCB as a link back from the ListItem_t.  This is so we can get
      * back to  the containing TCB from a generic item in a list. */
     listSET_LIST_ITEM_OWNER( &( pxNewTCB->xStateListItem ), pxNewTCB );
@@ -1408,8 +1418,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         mtCOVERAGE_TEST_MARKER();
     }
 }
-/*-----------------------------------------------------------*/
 
+/*-----------------------------------------------------------*/
 static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 {
     /* Ensure interrupts don't access the task lists while the lists are being
