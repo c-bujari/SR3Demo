@@ -1900,7 +1900,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 	void prvTaskShiftHi( TaskHandle_t xTask, CritType_t ucNewCrit);
 	void prvTaskShiftLo( TaskHandle_t xTask, CritType_t ucNewCrit);
 
-	// Take a list of either high/low criticality tasks, and apply the changes needed for all tasks in
+	// Take a list of high/low criticality tasks, and apply the changes needed for all tasks in
 	// the list to shift to a given criticality mode.
 	void vListShift( List_t * pxList, CritType_t ucNewCrit )
 		{
@@ -2358,6 +2358,80 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 #endif /* INCLUDE_vTaskSuspend */
 
 /*-----------------------------------------------------------*/
+
+BaseType_t xCritShiftFromISR( TaskHandle_t xTaskToShift, CritType_t ucNewCrit)
+{
+	BaseType_t xYieldRequired = pdFALSE;
+	TCB_t * const pxTCB = xTaskToShift;
+	UBaseType_t uxSavedInterruptStatus;
+
+	configASSERT( xTaskToShift );
+
+	portASSERT_IF_INTERRUPT_PRIORITY_INVALID();
+
+	uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+	{
+		// Handle high-criticality tasks
+		if( xTaskToShift->ucTaskCrit == HI_CRIT )
+		{
+			if( ucNewCrit == HI_CRIT )
+				pxTCB->xTaskPeriod = pxTCB->xHiPeriod;
+
+			else if( ucNewCrit == LO_CRIT )
+				pxTCB->xTaskPeriod = pxTCB->xLoPeriod;
+		}
+
+		// Handle low-criticality tasks
+		if( xTaskToShift->ucTaskCrit == LO_CRIT )
+		{
+			// If going High->Low, Use the same method as xTaskResumeFromISR() to restart the task
+			if( ucNewCrit == LO_CRIT && prvTaskIsTaskSuspended( pxTCB ) != pdFALSE )
+			{
+				traceTASK_RESUME_FROM_ISR( pxTCB );
+
+				/* Check the ready lists can be accessed. */
+				if( uxSchedulerSuspended == ( UBaseType_t ) pdFALSE )
+				{
+					/* Ready lists can be accessed so move the task from the
+					 * suspended list to the ready list directly. */
+					if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+					{
+						xYieldRequired = pdTRUE;
+					}
+					else
+					{
+						mtCOVERAGE_TEST_MARKER();
+					}
+
+					( void ) uxListRemove( &( pxTCB->xStateListItem ) );
+					prvAddTaskToReadyList( pxTCB );
+				}
+				else
+				{
+					/* The delayed or ready lists cannot be accessed so the task
+					 * is held in the pending ready list until the scheduler is
+					 * unsuspended. */
+					vListInsertEnd( &( xPendingReadyList ), &( pxTCB->xEventListItem ) );
+				}
+			}
+			else if( ucNewCrit == LO_CRIT )
+			{
+				mtCOVERAGE_TEST_MARKER();
+			}
+
+			// If going Low->High......no resources are available online to help with this.
+			else if( ucNewCrit == HI_CRIT)
+			{
+			}
+		}
+
+
+	}
+	portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
+
+	return xYieldRequired;
+}
+
 
 #if ( ( INCLUDE_xTaskResumeFromISR == 1 ) && ( INCLUDE_vTaskSuspend == 1 ) )
 

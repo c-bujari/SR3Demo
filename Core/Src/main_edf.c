@@ -57,8 +57,8 @@ void main_edf(UART_HandleTypeDef pass_huart) {
     // xTaskVirtCreate --- Used to create VD-compatible tasks. New parameters:
     // Task criticality type: HI_CRIT or LO_CRIT
     // Task criticality scale factor: May be better suited as a global define, but code technically allows for independent definition per-task.
-    xTaskVirtCreate( vEDFTask1, "task1", configMINIMAL_STACK_SIZE, NULL, 1, &xTask1Handle, EDF_TASK1_PERIOD, HI_CRIT, 0.80);
-    xTaskVirtCreate( vEDFTask2, "task2", configMINIMAL_STACK_SIZE, NULL, 1, &xTask2Handle, EDF_TASK2_PERIOD, HI_CRIT, 0.70);
+    xTaskVirtCreate( vEDFTask1, "task1", configMINIMAL_STACK_SIZE, NULL, 1, &xTask1Handle, EDF_TASK1_PERIOD, LO_CRIT, 0.80);
+    xTaskVirtCreate( vEDFTask2, "task2", configMINIMAL_STACK_SIZE, NULL, 1, &xTask2Handle, EDF_TASK2_PERIOD, LO_CRIT, 0.70);
     xTaskVirtCreate( vEDFTask3, "task3", configMINIMAL_STACK_SIZE, NULL, 1, &xTask3Handle, EDF_TASK3_PERIOD, LO_CRIT, 0.00);
     xTaskVirtCreate( vEDFTask4, "task4", configMINIMAL_STACK_SIZE, NULL, 1, &xTask4Handle, EDF_TASK4_PERIOD, LO_CRIT, 0.00);
 
@@ -71,6 +71,9 @@ void main_edf(UART_HandleTypeDef pass_huart) {
     uint8_t startmsg[] = "Initial tasks created, starting kernel...\r\n";
     HAL_UART_Transmit(&huart2, startmsg, strlen((char*)startmsg), 1000);
 
+    vTaskSuspend(xTask3Handle);
+    vTaskSuspend(xTask4Handle);
+
     // Start FreeRTOS Kernel
     osKernelStart();
 
@@ -79,9 +82,19 @@ void main_edf(UART_HandleTypeDef pass_huart) {
 
 void HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin) {
 //	uint8_t testbuf[] = "button interrupt detected\r\n";
+
+	BaseType_t pxYieldRequired;
 	if (GPIO_Pin == B1_Pin) {
-//		vTaskSuspend(xTask1Handle);
-		__NOP();
+
+		pxYieldRequired = xCritShiftFromISR(xTask1Handle, HI_CRIT);
+		portYIELD_FROM_ISR(pxYieldRequired);
+
+		// Test of basic resume functionality for low-crit tasks
+//		pxYieldRequired = xCritShiftFromISR(xTask3Handle, LO_CRIT);
+//		portYIELD_FROM_ISR(pxYieldRequired);
+
+		// Test of suspend functionality for low-crit tasks
+		// Not yet implemented - is a flag the best approach?
 	}
 	else {
 		__NOP();
