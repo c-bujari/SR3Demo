@@ -363,6 +363,8 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
 		CritType_t ucTaskCrit;		// Designate task TYPE
 		CritType_t ucCurrCrit;		// Designate CURRENT task criticality
 		BaseType_t xScaleDiv;
+		BaseType_t xLoPeriod;
+		BaseType_t xHiPeriod;
 	#endif
 
 } tskTCB;
@@ -386,7 +388,6 @@ PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 #if ( configUSE_EDFVD_SCHEDULER == 1 )
     PRIVILEGED_DATA static List_t pxHiCritTasks;
     PRIVILEGED_DATA static List_t pxLoCritTasks;
-#endif
 
 // If the VD scheduler is enabled, this macro adds a task to its corresponding list based on criticality.
 // This allows us to quickly change virtual deadlines, and drop/resume all tasks of a given criticality
@@ -397,6 +398,7 @@ void prvAddTaskToCritList( TCB_t * pxTCB )
    	else if( pxTCB->ucTaskCrit == LO_CRIT )
 		vListInsert( &( pxHiCritTasks), &( ( pxTCB )->xStateListItem ) );
 }
+#endif
 
 
 PRIVILEGED_DATA static List_t pxReadyTasksLists[ configMAX_PRIORITIES ]; /*< Prioritised ready tasks. */
@@ -861,9 +863,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             prvInitialiseNewTask( pxTaskCode, pcName, ( uint32_t ) usStackDepth, pvParameters, uxPriority, pxCreatedTask, pxNewTCB, NULL, NULL, NULL, 0.00);
             prvAddNewTaskToReadyList( pxNewTCB );
-			#if( configUSE_EDFVD_SCHEDULER == 1 )
-			prvAddTaskToCritList( pxNewTCB );
-			#endif
+			//#if( configUSE_EDFVD_SCHEDULER == 1 )
+			//prvAddTaskToCritList( pxNewTCB );
+			//#endif
             xReturn = pdPASS;
         }
         else
@@ -958,7 +960,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             prvInitialiseNewTask( pxTaskCode, pcName, ( uint32_t ) usStackDepth, pvParameters, uxPriority, pxCreatedTask, pxNewTCB, NULL, xPeriod, ucCrit, xShiftScaler);
             prvAddNewTaskToReadyList( pxNewTCB );
-            prvAddTaskToCritList(pxNewTCB);
+//            prvAddTaskToCritList(pxNewTCB);
             xReturn = pdPASS;
         }
         else
@@ -1287,8 +1289,10 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 	#if (configUSE_EDFVD_SCHEDULER == 1)
         pxNewTCB->ucTaskCrit = ucCrit;
     	pxNewTCB->ucCurrCrit = LO_CRIT;
-    	pxNewTCB->xScaleDiv = (BaseType_t)(1 / xShiftScaler);
-    	pxNewTCB->xTaskPeriod = pxTCB->xTaskPeriod * pxTCB->xScaleDiv;
+    	pxNewTCB->xScaleDiv  = (BaseType_t)(1 / xShiftScaler);	// Delete after testing xLo and xHiPeriod
+    	pxNewTCB->xLoPeriod  = xPeriod * xShiftScaler;
+    	pxNewTCB->xHiPeriod  = xPeriod;
+    	pxNewTCB->xTaskPeriod = pxNewTCB->xLoPeriod;
 	#endif
 
     /* Set the pxNewTCB as a link back from the ListItem_t.  This is so we can get
@@ -1958,13 +1962,11 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 		if( ucNewCrit == pxTCB->ucCurrCrit)
 			return;
 
-		// If the system is changing to High Criticality mode, increase period by scale amount
 		else if( ucNewCrit == HI_CRIT )
-			pxTCB->xTaskPeriod = pxTCB->xTaskPeriod * pxTCB->xScaleDiv;
+			pxTCB->xTaskPeriod = pxTCB->xHiPeriod;
 
-		// If the system is changing to Low Criticality mode, decrease period by scale amount
 		else if( ucNewCrit == LO_CRIT )
-			pxTCB->xTaskPeriod = pxTCB->xTaskPeriod / pxTCB->xScaleDiv;
+			pxTCB->xTaskPeriod = pxTCB->xLoPeriod;
 
 		else return;
 	}
