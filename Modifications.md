@@ -7,7 +7,7 @@
 + `#define LO_CRIT  0`		- Simple definition to represent low criticality
 
 ### TCB Additions:
-+ `CritType_t ucTaskCrit` - Value should be either HI_CRIT or LO_CRIT. This determines if the task's *type* is high-criticality or low-criticality.
++ `CritType_t ucTaskCrit` - Value should be either HI_CRIT or LO_CRIT. This determines if the task's *type* is high-criticality or low-criticality. (Note: better terminology may be nice...)
 + `CritType_t ucCurrCrit` - Value should be either HI_CRIT or LO_CRIT. This represents the task's *current* criticality setting. While this could be done globally since criticality should always be the same for all tasks, for the sake of fitting into FreeRTOS conventions it made more sense to use a per-task variable in the TCB. 
 + `BaseType_t xLoPeriod`  - Value can be any integer (number of bits determined by port settings). This is a pre-calculated number to be copied into xTaskPeriod when the task is in the low criticality mode (For low-criticality tasks, this is the same as xHiPeriod).
 + `BaseType_t xHiPeriod`  - Value can be any integer (number of bits determined by port settings). This is a pre-calculated number to be copied into xTaskPeriod when the task is in the high criticality mode (For low-criticality tasks, this is the same as xLoPeriod).
