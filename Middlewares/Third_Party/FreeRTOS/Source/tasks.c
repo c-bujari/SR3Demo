@@ -1888,6 +1888,95 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 #endif /* INCLUDE_uxTaskPriorityGet */
 /*-----------------------------------------------------------*/
 
+// Functions to update high-criticality tasks with new deadline,
+// drop low-criticality tasks
+#if ( configUSE_EDFVD_SCHEDULER == 1)
+
+	void prvTaskShiftHi( TaskHandle_t xTask, CritType_t ucNewCrit);
+	void prvTaskShiftLo( TaskHandle_t xTask, CritType_t ucNewCrit);
+
+	// Take a list of either high/low criticality tasks, and apply the changes needed for all tasks in
+	// the list to shift to a given criticality mode.
+	void vListShift( List_t * pxList, CritType_t ucNewCrit )
+		{
+			TCB_t * pxNextTCB, * pxFirstTCB, * pxReturn = NULL;
+			UBaseType_t x;
+			CritType_t ucNextCrit;
+			BaseType_t xBreakLoop;
+
+			/* This function is called with the scheduler suspended. */
+
+			if( listCURRENT_LIST_LENGTH( pxList ) > ( UBaseType_t ) 0 )
+			{
+				listGET_OWNER_OF_NEXT_ENTRY( pxFirstTCB, pxList ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+
+				do
+				{
+					listGET_OWNER_OF_NEXT_ENTRY( pxNextTCB, pxList ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+
+					/* Check each character in the name looking for a match or
+					 * mismatch. */
+					xBreakLoop = pdFALSE;
+
+					for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configMAX_TASK_NAME_LEN; x++ )
+					{
+						ucNextCrit = pxNextTCB->ucTaskCrit;
+
+						if( ucNextCrit == HI_CRIT )
+							vTaskShiftHi(pxNextTCB, ucNewCrit);
+
+						else if( ucNextCrit == LO_CRIT )
+							vTaskShiftLo(pxNextTCB, ucNewCrit);
+
+						else exit(0); // should never ever happen
+
+						if( xBreakLoop != pdFALSE )
+						{
+							break;
+						}
+					}
+
+					if( pxReturn != NULL )
+					{
+						/* The handle has been found. */
+						break;
+					}
+				} while( pxNextTCB != pxFirstTCB );
+			}
+			else
+			{
+				mtCOVERAGE_TEST_MARKER();
+			}
+
+			return;
+		}
+
+	void prvTaskShiftHi( TCB_t * pxTCB, CritType_t ucNewCrit )
+	{
+		if( ucNewCrit == pxTCB->ucCurrCrit)
+			return;
+
+		else if( ucNewCrit == HI_CRIT )
+			pxTCB->xTaskPeriod = pxTCB->xTaskPeriod * pxTCB->xScaleDiv;
+
+		else if( ucNewCrit == LO_CRIT )
+			pxTCB->xTaskPeriod = pxTCB->xTaskPeriod / pxTCB->xScaleDiv;
+
+		else return;
+	}
+
+	void prvTaskShiftLo( TCB_t * pxTCB, CritType_t ucNewCrit )
+	{
+		if( ucNewCrit == pxTCB->ucCurrCrit) return;
+
+		else if( ucNewCrit == HI_CRIT )
+			vTaskSuspend(pxTCB);
+
+		else if( ucNewCrit == LO_CRIT )
+			vTaskResume(pxTCB);
+	}
+#endif
+
 #if ( INCLUDE_vTaskPrioritySet == 1 )
 
     void vTaskPrioritySet( TaskHandle_t xTask,
