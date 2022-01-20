@@ -54,13 +54,19 @@ void main_edf(UART_HandleTypeDef pass_huart) {
 	// Initialize CMSIS/FreeRTOS Kernel
     osKernelInitialize();
 
-    xTaskPeriodicCreate( vEDFTask1, "task1", configMINIMAL_STACK_SIZE, NULL, 1, &xTask1Handle, EDF_TASK1_PERIOD);
-    xTaskPeriodicCreate( vEDFTask2, "task2", configMINIMAL_STACK_SIZE, NULL, 1, &xTask2Handle, EDF_TASK2_PERIOD);
-    xTaskPeriodicCreate( vEDFTask3, "task3", configMINIMAL_STACK_SIZE, NULL, 1, &xTask3Handle, EDF_TASK3_PERIOD);
-    xTaskPeriodicCreate( vEDFTask4, "task4", configMINIMAL_STACK_SIZE, NULL, 1, &xTask4Handle, EDF_TASK4_PERIOD);
+    // xTaskVirtCreate --- Used to create VD-compatible tasks. New parameters:
+    // Task criticality type: HI_CRIT or LO_CRIT
+    // Task criticality scale factor: May be better suited as a global define, but code technically allows for independent definition per-task.
+    xTaskVirtCreate( vEDFTask1, "task1", configMINIMAL_STACK_SIZE, NULL, 1, &xTask1Handle, EDF_TASK1_PERIOD, HI_CRIT, 0.80);
+    xTaskVirtCreate( vEDFTask2, "task2", configMINIMAL_STACK_SIZE, NULL, 1, &xTask2Handle, EDF_TASK2_PERIOD, HI_CRIT, 0.70);
+    xTaskVirtCreate( vEDFTask3, "task3", configMINIMAL_STACK_SIZE, NULL, 1, &xTask3Handle, EDF_TASK3_PERIOD, LO_CRIT, 0.00);
+    xTaskVirtCreate( vEDFTask4, "task4", configMINIMAL_STACK_SIZE, NULL, 1, &xTask4Handle, EDF_TASK4_PERIOD, LO_CRIT, 0.00);
 
-    xTask1Handle = xTaskGetHandle("Task1");
-    xTask2Handle = xTaskGetHandle("Task2");
+    // Periodic task creation functions used for initial testing
+//    xTaskPeriodicCreate( vEDFTask1, "task1", configMINIMAL_STACK_SIZE, NULL, 1, &xTask1Handle, EDF_TASK1_PERIOD);
+//    xTaskPeriodicCreate( vEDFTask2, "task2", configMINIMAL_STACK_SIZE, NULL, 1, &xTask2Handle, EDF_TASK2_PERIOD);
+//    xTaskPeriodicCreate( vEDFTask3, "task3", configMINIMAL_STACK_SIZE, NULL, 1, &xTask3Handle, EDF_TASK3_PERIOD);
+//    xTaskPeriodicCreate( vEDFTask4, "task4", configMINIMAL_STACK_SIZE, NULL, 1, &xTask4Handle, EDF_TASK4_PERIOD);
 
     uint8_t startmsg[] = "Initial tasks created, starting kernel...\r\n";
     HAL_UART_Transmit(&huart2, startmsg, strlen((char*)startmsg), 1000);
@@ -74,7 +80,8 @@ void main_edf(UART_HandleTypeDef pass_huart) {
 void HAL_GPIO_EXTI_Callback (uint16_t GPIO_Pin) {
 //	uint8_t testbuf[] = "button interrupt detected\r\n";
 	if (GPIO_Pin == B1_Pin) {
-		vTaskSuspend(xTask1Handle);
+//		vTaskSuspend(xTask1Handle);
+		__NOP();
 	}
 	else {
 		__NOP();
@@ -85,14 +92,21 @@ void vEDFTask1(void *pvParameters) {
 	const TickType_t xTaskFreq = EDF_TASK1_PERIOD;
 	TickType_t xLastWakeTime;
 
-	uint8_t task_start[] = "S1 ";
-	uint8_t task_end[] = "F1 ";
+	uint8_t task_start[] = "S1-";
+	uint8_t task_end[] = "F1-";
+
+	// uint16_t jobcount = 0;
+	// uint8_t job_str[12];
 
 	TickType_t capacity = EDF_TASK1_BUDGET;
 
 	xLastWakeTime = xTaskGetTickCount();
 	for(;;) {
+		// jobcount++;
+		// sprintf(job_str, "%d\t", jobcount);
+
 		HAL_UART_Transmit(&huart2, task_start, 3, 50);
+		// HAL_UART_Transmit(&huart2, job_str, strlen(job_str), 25);
 		HAL_UART_write_uint32(xLastWakeTime);
 
 		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
@@ -102,6 +116,7 @@ void vEDFTask1(void *pvParameters) {
 
 		TickType_t xFinishedTime = xTaskGetTickCount();
 		HAL_UART_Transmit(&huart2, task_end, 3, 50);
+		// HAL_UART_Transmit(&huart2, job_str, strlen(job_str), 25);
 		HAL_UART_write_uint32(xFinishedTime);
 		uart_write_char('\n');
 
@@ -113,14 +128,20 @@ void vEDFTask2(void *pvParameters) {
 	const TickType_t xTaskFreq = EDF_TASK2_PERIOD;
 	TickType_t xLastWakeTime;
 
-	uint8_t task_start[] = "S2 ";
-	uint8_t task_end[] = "F2 ";
+	uint8_t task_start[] = "S2-";
+	uint8_t task_end[] = "F2-";
+
+	// uint16_t jobcount = 0;
+	// uint8_t job_str[20];
 
 	TickType_t capacity = EDF_TASK2_BUDGET;
 
 	xLastWakeTime = xTaskGetTickCount();
 	for(;;) {
+		// jobcount++;
+		// sprintf(job_str, "%d\t", jobcount);
 		HAL_UART_Transmit(&huart2, task_start, 3, 50);
+		// HAL_UART_Transmit(&huart2, job_str, strlen(job_str), 25);
 		HAL_UART_write_uint32(xLastWakeTime);
 
 		while(xTaskTick2 != capacity);
@@ -128,6 +149,7 @@ void vEDFTask2(void *pvParameters) {
 
 		TickType_t xFinishedTime = xTaskGetTickCount();
 		HAL_UART_Transmit(&huart2, task_end, 3, 50);
+		// HAL_UART_Transmit(&huart2, job_str, strlen(job_str), 25);
 		HAL_UART_write_uint32(xFinishedTime);
 		uart_write_char('\n');
 
@@ -139,14 +161,20 @@ void vEDFTask3(void *pvParameters) {
 	const TickType_t xTaskFreq = EDF_TASK3_PERIOD;
 	TickType_t xLastWakeTime;
 
-	uint8_t task_start[] = "S3 ";
-	uint8_t task_end[] = "F3 ";
+	uint8_t task_start[] = "S3-";
+	uint8_t task_end[] = "F3-";
+
+	// uint16_t jobcount = 0;
+	// uint8_t job_str[20];
 
 	TickType_t capacity = EDF_TASK3_BUDGET;
 
 	xLastWakeTime = xTaskGetTickCount();
 	for(;;) {
+		// jobcount++;
+		// sprintf(job_str, "%d\t", jobcount);
 		HAL_UART_Transmit(&huart2, task_start, 3, 50);
+		// HAL_UART_Transmit(&huart2, job_str, strlen(job_str), 25);
 		HAL_UART_write_uint32(xLastWakeTime);
 
 		while(xTaskTick3 != capacity);
@@ -154,6 +182,7 @@ void vEDFTask3(void *pvParameters) {
 
 		TickType_t xFinishedTime = xTaskGetTickCount();
 		HAL_UART_Transmit(&huart2, task_end, 3, 50);
+		// HAL_UART_Transmit(&huart2, job_str, strlen(job_str), 25);
 		HAL_UART_write_uint32(xFinishedTime);
 		uart_write_char('\n');
 
@@ -165,14 +194,20 @@ void vEDFTask4(void *pvParameters) {
 	const TickType_t xTaskFreq = EDF_TASK4_PERIOD;
 	TickType_t xLastWakeTime;
 
-	uint8_t task_start[] = "S4 ";
-	uint8_t task_end[] = "F4 ";
+	uint8_t task_start[] = "S4-";
+	uint8_t task_end[] = "F4-";
+
+	// uint16_t jobcount = 0;
+	// uint8_t job_str[20];
 
 	TickType_t capacity = EDF_TASK4_BUDGET;
 
 	xLastWakeTime = xTaskGetTickCount();
 	for(;;) {
+		// jobcount++;
+		// sprintf(job_str, "%d\t", jobcount);
 		HAL_UART_Transmit(&huart2, task_start, 3, 50);
+		// HAL_UART_Transmit(&huart2, job_str, strlen(job_str), 25);
 		HAL_UART_write_uint32(xLastWakeTime);
 
 		while(xTaskTick4 != capacity);
@@ -180,6 +215,7 @@ void vEDFTask4(void *pvParameters) {
 
 		TickType_t xFinishedTime = xTaskGetTickCount();
 		HAL_UART_Transmit(&huart2, task_end, 3, 50);
+		// HAL_UART_Transmit(&huart2, job_str, strlen(job_str), 25);
 		HAL_UART_write_uint32(xFinishedTime);
 		uart_write_char('\n');
 
