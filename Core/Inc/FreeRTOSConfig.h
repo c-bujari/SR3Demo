@@ -154,6 +154,12 @@ See http://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html. */
 header file. */
 /* USER CODE BEGIN 1 */
 #define configUSE_EDF_SCHEDULER                 1
+#define configUSE_EDFVD_SCHEDULER				1
+#ifdef configUSE_EDFVD_SCHEDULER
+	typedef uint8_t CritType_t;
+	#define HI_CRIT 		1
+	#define LO_CRIT			0
+#endif
 //#define USE_FULL_ASSERT							1
 #define configASSERT( x ) if ((x) == 0) {taskDISABLE_INTERRUPTS(); for( ;; );}
 #define traceTASK_INCREMENT_TICK(xTickCount) { char *taskName; taskName = pxCurrentTCB->pcTaskName; update_task_tick_counts(taskName, xTickCount); }
