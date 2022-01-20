@@ -1951,31 +1951,38 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 			return;
 		}
 
+	// Handle criticality shifts for Hi-Crit tasks
 	void prvTaskShiftHi( TCB_t * pxTCB, CritType_t ucNewCrit )
 	{
 		if( ucNewCrit == pxTCB->ucCurrCrit)
 			return;
 
+		// If the system is changing to High Criticality mode, increase period by scale amount
 		else if( ucNewCrit == HI_CRIT )
 			pxTCB->xTaskPeriod = pxTCB->xTaskPeriod * pxTCB->xScaleDiv;
 
+		// If the system is changing to Low Criticality mode, decrease period by scale amount
 		else if( ucNewCrit == LO_CRIT )
 			pxTCB->xTaskPeriod = pxTCB->xTaskPeriod / pxTCB->xScaleDiv;
 
 		else return;
 	}
 
+	// Handle criticality shifts for Lo-Crit tasks
 	void prvTaskShiftLo( TCB_t * pxTCB, CritType_t ucNewCrit )
 	{
 		if( ucNewCrit == pxTCB->ucCurrCrit) return;
 
+		// If the system is changing to High Criticality mode, suspend this task
 		else if( ucNewCrit == HI_CRIT )
 			vTaskSuspend(pxTCB);
 
+		// If the system is returning to Low Criticality mode, resume the task.
 		else if( ucNewCrit == LO_CRIT )
 			vTaskResume(pxTCB);
 	}
 #endif
+
 
 #if ( INCLUDE_vTaskPrioritySet == 1 )
 
